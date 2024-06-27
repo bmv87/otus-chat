@@ -42,6 +42,7 @@ public class Server {
         }
     }
 
+    // new
     public synchronized void sendMessageTo(String from, String to, String message) {
         var client = clients.stream().filter(c -> c.getUsername().equalsIgnoreCase(to)).findFirst();
         if (client.isPresent()) {

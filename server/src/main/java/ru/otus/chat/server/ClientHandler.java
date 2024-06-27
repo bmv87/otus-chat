@@ -38,6 +38,7 @@ public class ClientHandler {
                             sendMessage("/exitok");
                             break;
                         }
+                        // new
                         if (message.startsWith("/w ")) {
                             var args = message.split("\\s+");
                             var to = args[1];
