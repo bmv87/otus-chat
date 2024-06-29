@@ -8,18 +8,25 @@ import java.util.List;
 public class Server {
     private int port;
     private List<ClientHandler> clients;
+    private AuthenticationProvider authenticationProvider;
+
+    public AuthenticationProvider getAuthenticationProvider() {
+        return authenticationProvider;
+    }
 
     public Server(int port) {
         this.port = port;
         this.clients = new ArrayList<>();
+        this.authenticationProvider = new InMemoryAuthenticationProvider(this);
     }
 
     public void start() {
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             System.out.println("Сервер запущен на порту: " + port);
+            authenticationProvider.initialize();
             while (true) {
                 Socket socket = serverSocket.accept();
-                subscribe(new ClientHandler(this, socket));
+                new ClientHandler(this, socket);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -51,5 +58,14 @@ public class Server {
             return;
         }
         fromClient.sendMessage("Сообщение не дошло до получателя " + to);
+    }
+
+    public boolean isUsernameBusy(String username) {
+        for (ClientHandler c : clients) {
+            if (c.getUsername().equals(username)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
