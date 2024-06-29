@@ -8,11 +8,13 @@ public class InMemoryAuthenticationProvider implements AuthenticationProvider {
         private String login;
         private String password;
         private String username;
+        private Role role;
 
-        public User(String login, String password, String username) {
+        public User(String login, String password, String username, Role role) {
             this.login = login;
             this.password = password;
             this.username = username;
+            this.role = role;
         }
     }
 
@@ -22,9 +24,9 @@ public class InMemoryAuthenticationProvider implements AuthenticationProvider {
     public InMemoryAuthenticationProvider(Server server) {
         this.server = server;
         this.users = new ArrayList<>();
-        this.users.add(new User("login1", "pass1", "bob"));
-        this.users.add(new User("login2", "pass2", "user2"));
-        this.users.add(new User("login3", "pass3", "user3"));
+        this.users.add(new User("login1", "pass1", "bob", Role.ADMIN));
+        this.users.add(new User("login2", "pass2", "user2", Role.USER));
+        this.users.add(new User("login3", "pass3", "user3", Role.USER));
     }
 
     @Override
@@ -40,6 +42,7 @@ public class InMemoryAuthenticationProvider implements AuthenticationProvider {
         }
         return null;
     }
+
 
     private boolean isLoginAlreadyExist(String login) {
         for (User u : users) {
@@ -77,7 +80,19 @@ public class InMemoryAuthenticationProvider implements AuthenticationProvider {
     }
 
     @Override
-    public boolean registration(ClientHandler clientHandler, String login, String password, String username) {
+    public synchronized boolean isAdmin(ClientHandler clientHandler) {
+        var uName = clientHandler.getUsername();
+        for (User u : users) {
+            if (u.username.equals(uName)) {
+                return u.role == Role.ADMIN;
+            }
+        }
+        return false;
+    }
+
+
+    @Override
+    public boolean registration(ClientHandler clientHandler, String login, String password, String username, Role role) {
         if (login.trim().length() < 3 || password.trim().length() < 6 || username.trim().length() < 1) {
             clientHandler.sendMessage("Логин 3+ символа, Пароль 6+ символов, Имя пользователя 1+ символ");
             return false;
@@ -90,10 +105,20 @@ public class InMemoryAuthenticationProvider implements AuthenticationProvider {
             clientHandler.sendMessage("Указанное имя пользователя уже занято");
             return false;
         }
-        users.add(new User(login, password, username));
+        var isAdmin = isAdmin(clientHandler);
+        if (!isAdmin(clientHandler) && role == Role.ADMIN) {
+            clientHandler.sendMessage("У вас нет прав регистрировать администратора!");
+            return false;
+        }
+        users.add(new User(login, password, username, role));
+        if (isAdmin) {
+            clientHandler.sendMessage("Новый администратор зарегистрирован: " + username);
+            return true;
+        }
         clientHandler.setUsername(username);
         server.subscribe(clientHandler);
         clientHandler.sendMessage("/regok " + username);
         return true;
     }
+
 }

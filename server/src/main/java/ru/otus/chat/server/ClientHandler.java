@@ -37,7 +37,7 @@ public class ClientHandler {
                         return;
                     }
                     if (message.startsWith("/auth ")) {
-                        String[] elements = message.split(" ");
+                        String[] elements = message.split("\\s+");
                         if (elements.length != 3) {
                             sendMessage("Неверный формат команды /auth");
                             continue;
@@ -48,12 +48,12 @@ public class ClientHandler {
                         continue;
                     }
                     if (message.startsWith("/register ")) {
-                        String[] elements = message.split(" ");
+                        String[] elements = message.split("\\s+");
                         if (elements.length != 4) {
                             sendMessage("Неверный формат команды /register");
                             continue;
                         }
-                        if (server.getAuthenticationProvider().registration(this, elements[1], elements[2], elements[3])) {
+                        if (server.getAuthenticationProvider().registration(this, elements[1], elements[2], elements[3], Role.USER)) {
                             break;
                         }
                         continue;
@@ -73,6 +73,28 @@ public class ClientHandler {
                             var to = args[1];
                             var text = Arrays.stream(args).skip(2).collect(Collectors.joining(" "));
                             server.sendMessageTo(this, to, text);
+                            continue;
+                        }
+                        if (message.startsWith("/register ")) {
+                            String[] elements = message.split("\\s+");
+                            if (elements.length != 4) {
+                                sendMessage("Неверный формат команды /register");
+                                continue;
+                            }
+                            server.getAuthenticationProvider().registration(this, elements[1], elements[2], elements[3], Role.ADMIN);
+                            continue;
+                        }
+                        if (message.startsWith("/kick ")) {
+                            String[] elements = message.split("\\s+");
+                            if (!server.getAuthenticationProvider().isAdmin(this)) {
+                                sendMessage("У вас нет прав для отключения пользователей!");
+                                continue;
+                            }
+                            if (elements.length != 2) {
+                                sendMessage("Неверный формат команды /kick");
+                                continue;
+                            }
+                            server.kickClient(this, elements[1]);
                             continue;
                         }
                     }
