@@ -43,7 +43,7 @@ public class ClientHandler {
                             var args = message.split("\\s+");
                             var to = args[1];
                             var text = Arrays.stream(args).skip(2).collect(Collectors.joining(" "));
-                            server.sendMessageTo(username, to, text);
+                            server.sendMessageTo(this, to, text);
                             continue;
                         }
 

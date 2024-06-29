@@ -43,15 +43,13 @@ public class Server {
     }
 
     // new
-    public synchronized void sendMessageTo(String from, String to, String message) {
+    public synchronized void sendMessageTo(ClientHandler fromClient, String to, String message) {
         var client = clients.stream().filter(c -> c.getUsername().equalsIgnoreCase(to)).findFirst();
         if (client.isPresent()) {
-            client.get().sendMessage("От " + to + ": " + message);
-            client = clients.stream().filter(c -> c.getUsername().equalsIgnoreCase(from)).findFirst();
-            client.ifPresent(clientHandler -> clientHandler.sendMessage("Для " + to + ": " + message));
+            client.get().sendMessage("От " + fromClient.getUsername() + ": " + message);
+            fromClient.sendMessage("Для " + to + ": " + message);
             return;
         }
-        client = clients.stream().filter(c -> c.getUsername().equalsIgnoreCase(from)).findFirst();
-        client.ifPresent(clientHandler -> clientHandler.sendMessage("Сообщение не дошло до получателя " + to));
+        fromClient.sendMessage("Сообщение не дошло до получателя " + to);
     }
 }
