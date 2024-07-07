@@ -1,65 +1,43 @@
 package ru.otus.chat.server;
 
-import java.util.ArrayList;
-import java.util.List;
+import ru.otus.chat.server.db.entities.IdentityRepository;
+import ru.otus.chat.server.db.entities.RoleEnum;
+import ru.otus.chat.server.db.entities.User;
 
-public class InMemoryAuthenticationProvider implements AuthenticationProvider {
-    private class User {
-        private String login;
-        private String password;
-        private String username;
-        private Role role;
+import java.util.UUID;
 
-        public User(String login, String password, String username, Role role) {
-            this.login = login;
-            this.password = password;
-            this.username = username;
-            this.role = role;
-        }
-    }
+public class DBAuthenticationProvider implements AuthenticationProvider {
 
-    private Server server;
-    private List<User> users;
 
-    public InMemoryAuthenticationProvider(Server server) {
+    private final Server server;
+    private final IdentityRepository identityRepository;
+
+    public DBAuthenticationProvider(Server server) {
         this.server = server;
-        this.users = new ArrayList<>();
-        this.users.add(new User("login1", "pass1", "bob", Role.ADMIN));
-        this.users.add(new User("login2", "pass2", "user2", Role.USER));
-        this.users.add(new User("login3", "pass3", "user3", Role.USER));
+        this.identityRepository = new IdentityRepository();
     }
 
     @Override
     public void initialize() {
-        System.out.println("Сервис аутентификации запущен: In-Memory режим");
+        System.out.println("Сервис аутентификации запущен: In-DB режим");
     }
 
     private String getUsernameByLoginAndPassword(String login, String password) {
-        for (User u : users) {
-            if (u.login.equals(login) && u.password.equals(password)) {
-                return u.username;
-            }
+        var user = identityRepository.getUsersByLogin(login);
+        if (user == null || !user.getPassword().equals(password)) {
+            return null;
         }
-        return null;
+        return user.getUsername();
     }
 
-
     private boolean isLoginAlreadyExist(String login) {
-        for (User u : users) {
-            if (u.login.equals(login)) {
-                return true;
-            }
-        }
-        return false;
+        var user = identityRepository.getUsersByLogin(login);
+        return user != null;
     }
 
     private boolean isUsernameAlreadyExist(String username) {
-        for (User u : users) {
-            if (u.username.equals(username)) {
-                return true;
-            }
-        }
-        return false;
+        var user = identityRepository.getUsersByUserName(username);
+        return user != null;
     }
 
     @Override
@@ -80,20 +58,18 @@ public class InMemoryAuthenticationProvider implements AuthenticationProvider {
     }
 
     @Override
-    public synchronized boolean isAdmin(ClientHandler clientHandler) {
+    public boolean isAdmin(ClientHandler clientHandler) {
         var uName = clientHandler.getUsername();
-        for (User u : users) {
-            if (u.username.equals(uName)) {
-                return u.role == Role.ADMIN;
-            }
+        if (uName == null || uName.isBlank()) {
+            return false;
         }
-        return false;
+        return identityRepository.isInRole(uName, RoleEnum.ADMIN);
     }
 
 
     @Override
-    public boolean registration(ClientHandler clientHandler, String login, String password, String username, Role role) {
-        if (login.trim().length() < 3 || password.trim().length() < 6 || username.trim().length() < 1) {
+    public boolean registration(ClientHandler clientHandler, String login, String password, String username, RoleEnum roleEnum) {
+        if (login.trim().length() < 3 || password.trim().length() < 6 || username.trim().isEmpty()) {
             clientHandler.sendMessage("Логин 3+ символа, Пароль 6+ символов, Имя пользователя 1+ символ");
             return false;
         }
@@ -106,11 +82,13 @@ public class InMemoryAuthenticationProvider implements AuthenticationProvider {
             return false;
         }
         var isAdmin = isAdmin(clientHandler);
-        if (!isAdmin(clientHandler) && role == Role.ADMIN) {
+        if (!isAdmin(clientHandler) && roleEnum == RoleEnum.ADMIN) {
             clientHandler.sendMessage("У вас нет прав регистрировать администратора!");
             return false;
         }
-        users.add(new User(login, password, username, role));
+        var roleId = identityRepository.getRoleId(roleEnum);
+        identityRepository.saveUser(new User(UUID.randomUUID(), roleId, login, password, username));
+
         if (isAdmin) {
             clientHandler.sendMessage("Новый администратор зарегистрирован: " + username);
             return true;
@@ -119,6 +97,10 @@ public class InMemoryAuthenticationProvider implements AuthenticationProvider {
         server.subscribe(clientHandler);
         clientHandler.sendMessage("/regok " + username);
         return true;
+    }
+
+    public void close() {
+        identityRepository.close();
     }
 
 }

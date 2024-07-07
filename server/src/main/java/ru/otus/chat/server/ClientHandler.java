@@ -1,5 +1,7 @@
 package ru.otus.chat.server;
 
+import ru.otus.chat.server.db.entities.RoleEnum;
+
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -8,10 +10,10 @@ import java.util.Arrays;
 import java.util.stream.Collectors;
 
 public class ClientHandler {
-    private Server server;
-    private Socket socket;
-    private DataInputStream in;
-    private DataOutputStream out;
+    private final Server server;
+    private final Socket socket;
+    private final DataInputStream in;
+    private final DataOutputStream out;
     private String username;
 
     public String getUsername() {
@@ -53,7 +55,7 @@ public class ClientHandler {
                             sendMessage("Неверный формат команды /register");
                             continue;
                         }
-                        if (server.getAuthenticationProvider().registration(this, elements[1], elements[2], elements[3], Role.USER)) {
+                        if (server.getAuthenticationProvider().registration(this, elements[1], elements[2], elements[3], RoleEnum.USER)) {
                             break;
                         }
                         continue;
@@ -81,7 +83,7 @@ public class ClientHandler {
                                 sendMessage("Неверный формат команды /register");
                                 continue;
                             }
-                            server.getAuthenticationProvider().registration(this, elements[1], elements[2], elements[3], Role.ADMIN);
+                            server.getAuthenticationProvider().registration(this, elements[1], elements[2], elements[3], RoleEnum.ADMIN);
                             continue;
                         }
                         if (message.startsWith("/kick ")) {

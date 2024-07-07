@@ -1,11 +1,13 @@
 package ru.otus.chat.server;
 
-public interface AuthenticationProvider {
+import ru.otus.chat.server.db.entities.RoleEnum;
+
+public interface AuthenticationProvider extends AutoCloseable {
     void initialize();
 
     boolean authenticate(ClientHandler clientHandler, String login, String password);
 
-    boolean registration(ClientHandler clientHandler, String login, String password, String username, Role role);
+    boolean registration(ClientHandler clientHandler, String login, String password, String username, RoleEnum roleEnum);
 
     boolean isAdmin(ClientHandler clientHandler);
 }

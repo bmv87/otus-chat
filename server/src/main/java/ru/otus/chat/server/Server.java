@@ -5,7 +5,7 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Server {
+public class Server implements AutoCloseable {
     private int port;
     private List<ClientHandler> clients;
     private AuthenticationProvider authenticationProvider;
@@ -17,7 +17,7 @@ public class Server {
     public Server(int port) {
         this.port = port;
         this.clients = new ArrayList<>();
-        this.authenticationProvider = new InMemoryAuthenticationProvider(this);
+        this.authenticationProvider = new DBAuthenticationProvider(this);
     }
 
     public void start() {
@@ -84,5 +84,10 @@ public class Server {
             }
         }
         return false;
+    }
+
+    @Override
+    public void close() throws Exception {
+        authenticationProvider.close();
     }
 }
