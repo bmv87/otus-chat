@@ -5,21 +5,28 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-public class Server {
+public class Server implements AutoCloseable {
     private int port;
     private List<ClientHandler> clients;
+    private AuthenticationProvider authenticationProvider;
+
+    public AuthenticationProvider getAuthenticationProvider() {
+        return authenticationProvider;
+    }
 
     public Server(int port) {
         this.port = port;
         this.clients = new ArrayList<>();
+        this.authenticationProvider = new DBAuthenticationProvider(this);
     }
 
     public void start() {
         try (ServerSocket serverSocket = new ServerSocket(port)) {
             System.out.println("Сервер запущен на порту: " + port);
+            authenticationProvider.initialize();
             while (true) {
                 Socket socket = serverSocket.accept();
-                subscribe(new ClientHandler(this, socket));
+                new ClientHandler(this, socket);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -36,21 +43,51 @@ public class Server {
         broadcastMessage("Из чата вышел: " + clientHandler.getUsername());
     }
 
+
+    public synchronized void kickClient(ClientHandler adminClient, String username) {
+        var oClient = clients.stream().filter(c -> c.getUsername().equalsIgnoreCase(username)).findFirst();
+        if (oClient.isPresent()) {
+            var client = oClient.get();
+            if (getAuthenticationProvider().isAdmin(client)) {
+                adminClient.sendMessage(String.format("Пользователь %s является администратором. Вы не можете отключить его от чата.", username));
+                return;
+            }
+            client.sendMessage("Администратор отключил вас от чата.");
+            client.sendMessage("/exitok");
+            adminClient.sendMessage(String.format("Пользователь %s отключен от чата.", username));
+            return;
+        }
+        adminClient.sendMessage(String.format("Пользователь %s не в чате.", username));
+    }
+
     public synchronized void broadcastMessage(String message) {
         for (ClientHandler c : clients) {
             c.sendMessage(message);
         }
     }
 
-    public synchronized void sendMessageTo(String from, String to, String message) {
+    // new
+    public synchronized void sendMessageTo(ClientHandler fromClient, String to, String message) {
         var client = clients.stream().filter(c -> c.getUsername().equalsIgnoreCase(to)).findFirst();
         if (client.isPresent()) {
-            client.get().sendMessage("От " + to + ": " + message);
-            client = clients.stream().filter(c -> c.getUsername().equalsIgnoreCase(from)).findFirst();
-            client.ifPresent(clientHandler -> clientHandler.sendMessage("Для " + to + ": " + message));
+            client.get().sendMessage("От " + fromClient.getUsername() + ": " + message);
+            fromClient.sendMessage("Для " + to + ": " + message);
             return;
         }
-        client = clients.stream().filter(c -> c.getUsername().equalsIgnoreCase(from)).findFirst();
-        client.ifPresent(clientHandler -> clientHandler.sendMessage("Сообщение не дошло до получателя " + to));
+        fromClient.sendMessage("Сообщение не дошло до получателя " + to);
+    }
+
+    public boolean isUsernameBusy(String username) {
+        for (ClientHandler c : clients) {
+            if (c.getUsername().equals(username)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void close() throws Exception {
+        authenticationProvider.close();
     }
 }
